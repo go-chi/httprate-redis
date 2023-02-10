@@ -1,4 +1,4 @@
-module github.com/go-chi/httprate-redis
+module github.com/JoinVerse/httprate-redis
 
 go 1.19
 

@@ -26,7 +26,7 @@ func NewRedisLimitCounter(cfg *Config) (httprate.LimitCounter, error) {
 
 	dialFn := func() (redis.Conn, error) {
 		address := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-		c, err := redis.Dial("tcp", address, redis.DialDatabase(cfg.DBIndex))
+		c, err := redis.Dial("tcp", address, redis.DialDatabase(cfg.DBIndex), redis.DialPassword(cfg.Password))
 		if err != nil {
 			return nil, fmt.Errorf("unable to dial redis host %v: %w", address, err)
 		}
