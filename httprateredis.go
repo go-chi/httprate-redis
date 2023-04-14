@@ -74,7 +74,6 @@ func (c *redisCounter) Config(requestLimit int, windowLength time.Duration) {
 
 func (c *redisCounter) Increment(key string, currentWindow time.Time) error {
 	conn := c.client
-	defer conn.Close()
 
 	hkey := limitCounterKey(key, currentWindow)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -102,7 +101,6 @@ func (c *redisCounter) Increment(key string, currentWindow time.Time) error {
 
 func (c *redisCounter) Get(key string, currentWindow, previousWindow time.Time) (int, int, error) {
 	conn := c.client
-	defer conn.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
