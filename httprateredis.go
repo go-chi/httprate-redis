@@ -115,7 +115,7 @@ func (c *redisCounter) Get(key string, currentWindow, previousWindow time.Time) 
 	}
 
 	curr, err := cmd.Int()
-	if err != nil {
+	if err != nil && err != redis.Nil {
 		return 0, 0, fmt.Errorf("redis int value: %w", err)
 	}
 
@@ -131,7 +131,7 @@ func (c *redisCounter) Get(key string, currentWindow, previousWindow time.Time) 
 	var prev int
 	prev, err = cmd.Int()
 
-	if err != nil {
+	if err != nil && err != redis.Nil {
 		return 0, 0, fmt.Errorf("redis int value: %w", err)
 	}
 
