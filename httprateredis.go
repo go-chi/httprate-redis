@@ -10,7 +10,13 @@ import (
 )
 
 func WithRedisLimitCounter(cfg *Config) httprate.Option {
-	rc, _ := NewRedisLimitCounter(cfg)
+	if cfg.Disabled {
+		return httprate.WithNoop()
+	}
+	rc, err := NewRedisLimitCounter(cfg)
+	if err != nil {
+		panic(err)
+	}
 	return httprate.WithLimitCounter(rc)
 }
 
@@ -53,9 +59,8 @@ func newClient(cfg *Config) (*redis.Client, error) {
 	})
 
 	status := c.Ping(context.Background())
-
 	if status == nil || status.Err() != nil {
-		return nil, fmt.Errorf("unable to dial redis host %v", address)
+		return nil, fmt.Errorf("httprateredis: unable to dial redis host %v", address)
 	}
 
 	return c, nil
@@ -73,25 +78,23 @@ func (c *redisCounter) Config(requestLimit int, windowLength time.Duration) {
 }
 
 func (c *redisCounter) Increment(key string, currentWindow time.Time) error {
+	ctx := context.Background()
 	conn := c.client
 
 	hkey := limitCounterKey(key, currentWindow)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
 
 	cmd := conn.Do(ctx, "INCR", hkey)
 	if cmd == nil {
-		return fmt.Errorf("redis incr failed")
+		return fmt.Errorf("httprateredis: redis incr failed")
 	}
-
 	if err := cmd.Err(); err != nil {
 		return err
 	}
+
 	cmd = conn.Do(ctx, "EXPIRE", hkey, c.windowLength.Seconds()*3)
 	if cmd == nil {
-		return fmt.Errorf("redis incr failed")
+		return fmt.Errorf("httprateredis: redis expire failed")
 	}
-
 	if err := cmd.Err(); err != nil {
 		return err
 	}
@@ -100,39 +103,35 @@ func (c *redisCounter) Increment(key string, currentWindow time.Time) error {
 }
 
 func (c *redisCounter) Get(key string, currentWindow, previousWindow time.Time) (int, int, error) {
+	ctx := context.Background()
 	conn := c.client
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
 
 	cmd := conn.Do(ctx, "GET", limitCounterKey(key, currentWindow))
 	if cmd == nil {
-		return 0, 0, fmt.Errorf("redis get failed")
+		return 0, 0, fmt.Errorf("httprateredis: redis get curr failed")
 	}
-
 	if err := cmd.Err(); err != nil && err != redis.Nil {
-		return 0, 0, fmt.Errorf("redis get failed: %w", err)
+		return 0, 0, fmt.Errorf("httprateredis: redis get curr failed: %w", err)
 	}
 
 	curr, err := cmd.Int()
 	if err != nil && err != redis.Nil {
-		return 0, 0, fmt.Errorf("redis int value: %w", err)
+		return 0, 0, fmt.Errorf("httprateredis: redis int curr value: %w", err)
 	}
 
 	cmd = conn.Do(ctx, "GET", limitCounterKey(key, previousWindow))
 	if cmd == nil {
-		return 0, 0, fmt.Errorf("redis get failed")
+		return 0, 0, fmt.Errorf("httprateredis: redis get prev failed")
 	}
 
 	if err := cmd.Err(); err != nil && err != redis.Nil {
-		return 0, 0, fmt.Errorf("redis get failed: %w", err)
+		return 0, 0, fmt.Errorf("httprateredis: redis get prev failed: %w", err)
 	}
 
 	var prev int
 	prev, err = cmd.Int()
-
 	if err != nil && err != redis.Nil {
-		return 0, 0, fmt.Errorf("redis int value: %w", err)
+		return 0, 0, fmt.Errorf("httprateredis: redis int prev value: %w", err)
 	}
 
 	return curr, prev, nil
