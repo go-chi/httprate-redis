@@ -1,6 +1,10 @@
 package httprateredis
 
+import "github.com/redis/go-redis/v9"
+
 type Config struct {
+	// Client if supplied will be used and other configs will be ignored.
+	Client    *redis.Client
 	Host      string `toml:"host"`
 	Port      uint16 `toml:"port"`
 	Password  string `toml:"password"`   // optional

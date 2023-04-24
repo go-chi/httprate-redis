@@ -41,6 +41,10 @@ func NewRedisLimitCounter(cfg *Config) (httprate.LimitCounter, error) {
 }
 
 func newClient(cfg *Config) (*redis.Client, error) {
+	if cfg.Client != nil {
+		return cfg.Client, nil
+	}
+
 	var maxIdle, maxActive = cfg.MaxIdle, cfg.MaxActive
 	if maxIdle <= 0 {
 		maxIdle = 20
