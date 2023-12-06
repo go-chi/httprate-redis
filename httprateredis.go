@@ -82,12 +82,16 @@ func (c *redisCounter) Config(requestLimit int, windowLength time.Duration) {
 }
 
 func (c *redisCounter) Increment(key string, currentWindow time.Time) error {
+	return c.IncrementBy(key, currentWindow, 1)
+}
+
+func (c *redisCounter) IncrementBy(key string, currentWindow time.Time, amount int) error {
 	ctx := context.Background()
 	conn := c.client
 
 	hkey := limitCounterKey(key, currentWindow)
 
-	cmd := conn.Do(ctx, "INCR", hkey)
+	cmd := conn.Do(ctx, "INCRBY", hkey, amount)
 	if cmd == nil {
 		return fmt.Errorf("httprateredis: redis incr failed")
 	}
