@@ -60,6 +60,7 @@ func newClient(cfg *Config) (*redis.Client, error) {
 		DB:           cfg.DBIndex,
 		PoolSize:     maxActive,
 		MaxIdleConns: maxIdle,
+		ClientName:   cfg.ClientName,
 	})
 
 	status := c.Ping(context.Background())
