@@ -7,6 +7,13 @@ jobs:
   benchmark:
     name: Benchmark
     runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:6
+        ports:
+          - 6379:6379
+
     steps:
       - name: Set up Go
         uses: actions/setup-go@v5
