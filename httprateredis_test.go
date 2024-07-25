@@ -3,6 +3,7 @@ package httprateredis_test
 import (
 	"fmt"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
@@ -147,6 +148,49 @@ func TestRedisCounter(t *testing.T) {
 		}
 		if err := g.Wait(); err != nil {
 			t.Errorf("%s: %v", tt.name, err)
+		}
+	}
+}
+
+func BenchmarkLocalCounter(b *testing.B) {
+	limitCounter, err := httprateredis.NewRedisLimitCounter(&httprateredis.Config{
+		Host:       "localhost",
+		Port:       6379,
+		MaxIdle:    500,
+		MaxActive:  500,
+		DBIndex:    0,
+		ClientName: "httprateredis_test",
+		PrefixKey:  fmt.Sprintf("httprate:test:%v", rand.Int31n(100000)), // Unique key for each test
+	})
+	if err != nil {
+		b.Fatalf("redis not available: %v", err)
+	}
+
+	limitCounter.Config(1000, time.Minute)
+
+	currentWindow := time.Now().UTC().Truncate(time.Minute)
+	previousWindow := currentWindow.Add(-time.Minute)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		for i := range []int{0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 0, 1, 0} {
+			// Simulate time.
+			currentWindow.Add(time.Duration(i) * time.Minute)
+			previousWindow.Add(time.Duration(i) * time.Minute)
+
+			wg := sync.WaitGroup{}
+			wg.Add(1000)
+			for i := 0; i < 1000; i++ {
+				// Simulate concurrent requests with different rate-limit keys.
+				go func(i int) {
+					defer wg.Done()
+
+					_, _, _ = limitCounter.Get(fmt.Sprintf("key:%v", i), currentWindow, previousWindow)
+					_ = limitCounter.IncrementBy(fmt.Sprintf("key:%v", i), currentWindow, rand.Intn(100))
+				}(i)
+			}
+			wg.Wait()
 		}
 	}
 }

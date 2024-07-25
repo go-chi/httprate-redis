@@ -22,7 +22,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
-    httprateredis "github.com/go-chi/httprate-redis"
+	httprateredis "github.com/go-chi/httprate-redis"
 )
 
 func main() {
