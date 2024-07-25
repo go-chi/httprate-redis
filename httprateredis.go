@@ -102,20 +102,20 @@ func (c *redisCounter) IncrementBy(key string, currentWindow time.Time, amount i
 
 	hkey := c.limitCounterKey(key, currentWindow)
 
-	cmd := conn.Do(ctx, "INCRBY", hkey, amount)
-	if cmd == nil {
-		return fmt.Errorf("httprateredis: redis incr failed")
-	}
-	if err := cmd.Err(); err != nil {
-		return err
+	pipe := conn.TxPipeline()
+	incrCmd := pipe.IncrBy(ctx, hkey, int64(amount))
+	expireCmd := pipe.Expire(ctx, hkey, c.windowLength*3)
+	_, err := pipe.Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("httprateredis: redis transaction failed: %w", err)
 	}
 
-	cmd = conn.Do(ctx, "EXPIRE", hkey, c.windowLength.Seconds()*3)
-	if cmd == nil {
-		return fmt.Errorf("httprateredis: redis expire failed")
+	if err := incrCmd.Err(); err != nil {
+		return fmt.Errorf("httprateredis: redis incr failed: %w", err)
 	}
-	if err := cmd.Err(); err != nil {
-		return err
+
+	if err := expireCmd.Err(); err != nil {
+		return fmt.Errorf("httprateredis: redis expire failed: %w", err)
 	}
 
 	return nil
