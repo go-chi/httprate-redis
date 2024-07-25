@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/httprate"
@@ -125,32 +126,27 @@ func (c *redisCounter) Get(key string, currentWindow, previousWindow time.Time) 
 	ctx := context.Background()
 	conn := c.client
 
-	cmd := conn.Do(ctx, "GET", c.limitCounterKey(key, currentWindow))
-	if cmd == nil {
-		return 0, 0, fmt.Errorf("httprateredis: redis get curr failed")
-	}
-	if err := cmd.Err(); err != nil && err != redis.Nil {
-		return 0, 0, fmt.Errorf("httprateredis: redis get curr failed: %w", err)
+	currKey := c.limitCounterKey(key, currentWindow)
+	prevKey := c.limitCounterKey(key, previousWindow)
+
+	values, err := conn.MGet(ctx, currKey, prevKey).Result()
+	if err != nil {
+		return 0, 0, fmt.Errorf("httprateredis: redis mget failed: %w", err)
+	} else if len(values) != 2 {
+		return 0, 0, fmt.Errorf("httprateredis: redis mget returned wrong number of keys: %v, expected 2", len(values))
 	}
 
-	curr, err := cmd.Int()
-	if err != nil && err != redis.Nil {
-		return 0, 0, fmt.Errorf("httprateredis: redis int curr value: %w", err)
-	}
+	var curr, prev int
 
-	cmd = conn.Do(ctx, "GET", c.limitCounterKey(key, previousWindow))
-	if cmd == nil {
-		return 0, 0, fmt.Errorf("httprateredis: redis get prev failed")
+	// MGET always returns slice with nil or "string" values, even if the values
+	// were created with the INCR command. Ignore error if we can't parse the number.
+	if values[0] != nil {
+		v, _ := values[0].(string)
+		curr, _ = strconv.Atoi(v)
 	}
-
-	if err := cmd.Err(); err != nil && err != redis.Nil {
-		return 0, 0, fmt.Errorf("httprateredis: redis get prev failed: %w", err)
-	}
-
-	var prev int
-	prev, err = cmd.Int()
-	if err != nil && err != redis.Nil {
-		return 0, 0, fmt.Errorf("httprateredis: redis int prev value: %w", err)
+	if values[1] != nil {
+		v, _ := values[1].(string)
+		prev, _ = strconv.Atoi(v)
 	}
 
 	return curr, prev, nil
