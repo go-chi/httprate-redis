@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -16,8 +17,8 @@ func main() {
 
 	r.Group(func(r chi.Router) {
 		r.Use(httprate.Limit(
-			10,
-			10*time.Second,
+			5,
+			time.Minute,
 			httprate.WithKeyByIP(),
 			httprateredis.WithRedisLimitCounter(&httprateredis.Config{
 				Host: "127.0.0.1", Port: 6379,
@@ -25,9 +26,14 @@ func main() {
 		))
 
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("."))
+			w.Write([]byte("5 req/min\n"))
 		})
 	})
+
+	log.Printf("Serving at localhost:3333")
+	log.Println()
+	log.Printf("Try running:")
+	log.Printf("curl -v http://localhost:3333")
 
 	http.ListenAndServe(":3333", r)
 }
