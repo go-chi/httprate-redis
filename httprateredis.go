@@ -3,6 +3,8 @@ package httprateredis
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/go-chi/httprate"
@@ -30,13 +32,20 @@ func NewRedisLimitCounter(cfg *Config) (httprate.LimitCounter, error) {
 	if cfg.Port < 1 {
 		cfg.Port = 6379
 	}
+	if cfg.ClientName == "" {
+		cfg.ClientName = filepath.Base(os.Args[0])
+	}
+	if cfg.PrefixKey == "" {
+		cfg.PrefixKey = "httprate"
+	}
 
 	c, err := newClient(cfg)
 	if err != nil {
 		return nil, err
 	}
 	return &redisCounter{
-		client: c,
+		client:    c,
+		prefixKey: cfg.PrefixKey,
 	}, nil
 }
 
@@ -74,6 +83,7 @@ func newClient(cfg *Config) (*redis.Client, error) {
 type redisCounter struct {
 	client       *redis.Client
 	windowLength time.Duration
+	prefixKey    string
 }
 
 var _ httprate.LimitCounter = &redisCounter{}
@@ -90,7 +100,7 @@ func (c *redisCounter) IncrementBy(key string, currentWindow time.Time, amount i
 	ctx := context.Background()
 	conn := c.client
 
-	hkey := limitCounterKey(key, currentWindow)
+	hkey := c.limitCounterKey(key, currentWindow)
 
 	cmd := conn.Do(ctx, "INCRBY", hkey, amount)
 	if cmd == nil {
@@ -115,7 +125,7 @@ func (c *redisCounter) Get(key string, currentWindow, previousWindow time.Time) 
 	ctx := context.Background()
 	conn := c.client
 
-	cmd := conn.Do(ctx, "GET", limitCounterKey(key, currentWindow))
+	cmd := conn.Do(ctx, "GET", c.limitCounterKey(key, currentWindow))
 	if cmd == nil {
 		return 0, 0, fmt.Errorf("httprateredis: redis get curr failed")
 	}
@@ -128,7 +138,7 @@ func (c *redisCounter) Get(key string, currentWindow, previousWindow time.Time) 
 		return 0, 0, fmt.Errorf("httprateredis: redis int curr value: %w", err)
 	}
 
-	cmd = conn.Do(ctx, "GET", limitCounterKey(key, previousWindow))
+	cmd = conn.Do(ctx, "GET", c.limitCounterKey(key, previousWindow))
 	if cmd == nil {
 		return 0, 0, fmt.Errorf("httprateredis: redis get prev failed")
 	}
@@ -146,6 +156,6 @@ func (c *redisCounter) Get(key string, currentWindow, previousWindow time.Time) 
 	return curr, prev, nil
 }
 
-func limitCounterKey(key string, window time.Time) string {
-	return fmt.Sprintf("httprate:%d", httprate.LimitCounterKey(key, window))
+func (c *redisCounter) limitCounterKey(key string, window time.Time) string {
+	return fmt.Sprintf("%s:%d", c.prefixKey, httprate.LimitCounterKey(key, window))
 }
