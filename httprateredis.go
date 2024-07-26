@@ -2,10 +2,13 @@ package httprateredis
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/httprate"
@@ -16,14 +19,11 @@ func WithRedisLimitCounter(cfg *Config) httprate.Option {
 	if cfg.Disabled {
 		return httprate.WithNoop()
 	}
-	rc, err := NewRedisLimitCounter(cfg)
-	if err != nil {
-		panic(err)
-	}
+	rc, _ := NewRedisLimitCounter(cfg)
 	return httprate.WithLimitCounter(rc)
 }
 
-func NewRedisLimitCounter(cfg *Config) (httprate.LimitCounter, error) {
+func NewRedisLimitCounter(cfg *Config) (*redisCounter, error) {
 	if cfg == nil {
 		cfg = &Config{}
 	}
@@ -39,20 +39,15 @@ func NewRedisLimitCounter(cfg *Config) (httprate.LimitCounter, error) {
 	if cfg.PrefixKey == "" {
 		cfg.PrefixKey = "httprate"
 	}
-
-	c, err := newClient(cfg)
-	if err != nil {
-		return nil, err
+	if cfg.CommandTimeout == 0 {
+		cfg.CommandTimeout = 50 * time.Millisecond
 	}
-	return &redisCounter{
-		client:    c,
-		prefixKey: cfg.PrefixKey,
-	}, nil
-}
 
-func newClient(cfg *Config) (*redis.Client, error) {
-	if cfg.Client != nil {
-		return cfg.Client, nil
+	rc := &redisCounter{
+		prefixKey: cfg.PrefixKey,
+	}
+	if !cfg.FallbackDisabled {
+		rc.fallbackCounter = httprate.NewLocalLimitCounter(cfg.WindowLength)
 	}
 
 	var maxIdle, maxActive = cfg.MaxIdle, cfg.MaxActive
@@ -64,57 +59,76 @@ func newClient(cfg *Config) (*redis.Client, error) {
 	}
 
 	address := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-	c := redis.NewClient(&redis.Options{
+	rc.client = redis.NewClient(&redis.Options{
 		Addr:         address,
 		Password:     cfg.Password,
 		DB:           cfg.DBIndex,
 		PoolSize:     maxActive,
 		MaxIdleConns: maxIdle,
 		ClientName:   cfg.ClientName,
+
+		DialTimeout:  cfg.CommandTimeout,
+		ReadTimeout:  cfg.CommandTimeout,
+		WriteTimeout: cfg.CommandTimeout,
+		MinIdleConns: 1,
+		MaxRetries:   -1,
 	})
 
-	status := c.Ping(context.Background())
-	if status == nil || status.Err() != nil {
-		return nil, fmt.Errorf("httprateredis: unable to dial redis host %v", address)
-	}
-
-	return c, nil
+	return rc, nil
 }
 
 type redisCounter struct {
-	client       *redis.Client
-	windowLength time.Duration
-	prefixKey    string
+	client          *redis.Client
+	windowLength    time.Duration
+	prefixKey       string
+	isRedisDown     atomic.Bool
+	fallbackCounter httprate.LimitCounter
 }
 
-var _ httprate.LimitCounter = &redisCounter{}
+var _ httprate.LimitCounter = (*redisCounter)(nil)
 
 func (c *redisCounter) Config(requestLimit int, windowLength time.Duration) {
 	c.windowLength = windowLength
+	if c.fallbackCounter != nil {
+		c.fallbackCounter.Config(requestLimit, windowLength)
+	}
 }
 
 func (c *redisCounter) Increment(key string, currentWindow time.Time) error {
 	return c.IncrementBy(key, currentWindow, 1)
 }
 
-func (c *redisCounter) IncrementBy(key string, currentWindow time.Time, amount int) error {
-	ctx := context.Background()
-	conn := c.client
+func (c *redisCounter) IncrementBy(key string, currentWindow time.Time, amount int) (err error) {
+	if c.fallbackCounter != nil {
+		if c.isRedisDown.Load() {
+			return c.fallbackCounter.IncrementBy(key, currentWindow, amount)
+		}
+		defer func() {
+			if err != nil {
+				// On redis network error, fallback to local in-memory counter.
+				var netErr net.Error
+				if errors.As(err, &netErr) || errors.Is(err, redis.ErrClosed) {
+					go c.fallback()
+					err = c.fallbackCounter.IncrementBy(key, currentWindow, amount)
+				}
+			}
+		}()
+	}
 
+	ctx := context.Background() // Note: We use timeouts set up on the Redis client directly.
 	hkey := c.limitCounterKey(key, currentWindow)
 
-	pipe := conn.TxPipeline()
+	pipe := c.client.TxPipeline()
 	incrCmd := pipe.IncrBy(ctx, hkey, int64(amount))
 	expireCmd := pipe.Expire(ctx, hkey, c.windowLength*3)
-	_, err := pipe.Exec(ctx)
+
+	_, err = pipe.Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("httprateredis: redis transaction failed: %w", err)
 	}
-
 	if err := incrCmd.Err(); err != nil {
 		return fmt.Errorf("httprateredis: redis incr failed: %w", err)
 	}
-
 	if err := expireCmd.Err(); err != nil {
 		return fmt.Errorf("httprateredis: redis expire failed: %w", err)
 	}
@@ -122,21 +136,34 @@ func (c *redisCounter) IncrementBy(key string, currentWindow time.Time, amount i
 	return nil
 }
 
-func (c *redisCounter) Get(key string, currentWindow, previousWindow time.Time) (int, int, error) {
-	ctx := context.Background()
-	conn := c.client
+func (c *redisCounter) Get(key string, currentWindow, previousWindow time.Time) (curr int, prev int, err error) {
+	if c.fallbackCounter != nil {
+		if c.isRedisDown.Load() {
+			return c.fallbackCounter.Get(key, currentWindow, previousWindow)
+		}
+		defer func() {
+			if err != nil {
+				// On redis network error, fallback to local in-memory counter.
+				var netErr net.Error
+				if errors.As(err, &netErr) || errors.Is(err, redis.ErrClosed) {
+					go c.fallback()
+					curr, prev, err = c.fallbackCounter.Get(key, currentWindow, previousWindow)
+				}
+			}
+		}()
+	}
+
+	ctx := context.Background() // Note: We use timeouts set up on the Redis client directly.
 
 	currKey := c.limitCounterKey(key, currentWindow)
 	prevKey := c.limitCounterKey(key, previousWindow)
 
-	values, err := conn.MGet(ctx, currKey, prevKey).Result()
+	values, err := c.client.MGet(ctx, currKey, prevKey).Result()
 	if err != nil {
 		return 0, 0, fmt.Errorf("httprateredis: redis mget failed: %w", err)
 	} else if len(values) != 2 {
 		return 0, 0, fmt.Errorf("httprateredis: redis mget returned wrong number of keys: %v, expected 2", len(values))
 	}
-
-	var curr, prev int
 
 	// MGET always returns slice with nil or "string" values, even if the values
 	// were created with the INCR command. Ignore error if we can't parse the number.
@@ -150,6 +177,28 @@ func (c *redisCounter) Get(key string, currentWindow, previousWindow time.Time) 
 	}
 
 	return curr, prev, nil
+}
+
+func (c *redisCounter) IsRedisDown() bool {
+	return c.isRedisDown.Load()
+}
+
+func (c *redisCounter) fallback() {
+	// Fallback to in-memory counter.
+	wasAlreadyDown := c.isRedisDown.Swap(true)
+	if wasAlreadyDown {
+		return
+	}
+
+	// Try to re-connect to redis every 50ms.
+	for {
+		err := c.client.Ping(context.Background()).Err()
+		if err == nil {
+			c.isRedisDown.Store(false)
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 }
 
 func (c *redisCounter) limitCounterKey(key string, window time.Time) string {
