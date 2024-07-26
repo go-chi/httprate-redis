@@ -17,6 +17,11 @@ type Config struct {
 	// the system will return HTTP 428 for all requests when Redis is down.
 	FallbackDisabled bool `toml:"fallback_disabled"` // default: false
 
+	// Timeout for each Redis command after which we fall back to a local
+	// in-memory counter. If Redis does not respond within this duration,
+	// the system will use the local counter unless it is explicitly disabled.
+	FallbackTimeout time.Duration `toml:"fallback_timeout"` // default: 50ms
+
 	// Client if supplied will be used and below fields will be ignored.
 	//
 	// It is recommended to disable retries and set short Dial/Read/Write
@@ -28,9 +33,4 @@ type Config struct {
 	DBIndex   int           `toml:"db_index"`   // default: 0
 	MaxIdle   int           `toml:"max_idle"`   // default: 4
 	MaxActive int           `toml:"max_active"` // default: 8
-
-	// Timeout for each Redis command after which we fall back to a local
-	// in-memory counter. If Redis does not respond within this duration,
-	// the system will use the local counter unless it is explicitly disabled.
-	CommandTimeout time.Duration `toml:"command_timeout"` // default: 50ms
 }

@@ -39,8 +39,8 @@ func NewRedisLimitCounter(cfg *Config) (*redisCounter, error) {
 	if cfg.PrefixKey == "" {
 		cfg.PrefixKey = "httprate"
 	}
-	if cfg.CommandTimeout == 0 {
-		cfg.CommandTimeout = 50 * time.Millisecond
+	if cfg.FallbackTimeout == 0 {
+		cfg.FallbackTimeout = 50 * time.Millisecond
 	}
 
 	rc := &redisCounter{
@@ -67,9 +67,9 @@ func NewRedisLimitCounter(cfg *Config) (*redisCounter, error) {
 		MaxIdleConns: maxIdle,
 		ClientName:   cfg.ClientName,
 
-		DialTimeout:  cfg.CommandTimeout,
-		ReadTimeout:  cfg.CommandTimeout,
-		WriteTimeout: cfg.CommandTimeout,
+		DialTimeout:  cfg.FallbackTimeout,
+		ReadTimeout:  cfg.FallbackTimeout,
+		WriteTimeout: cfg.FallbackTimeout,
 		MinIdleConns: 1,
 		MaxRetries:   -1,
 	})
@@ -115,7 +115,9 @@ func (c *redisCounter) IncrementBy(key string, currentWindow time.Time, amount i
 		}()
 	}
 
-	ctx := context.Background() // Note: We use timeouts set up on the Redis client directly.
+	// Note: Timeouts are set up directly on the Redis client.
+	ctx := context.Background()
+
 	hkey := c.limitCounterKey(key, currentWindow)
 
 	pipe := c.client.TxPipeline()
@@ -153,7 +155,8 @@ func (c *redisCounter) Get(key string, currentWindow, previousWindow time.Time) 
 		}()
 	}
 
-	ctx := context.Background() // Note: We use timeouts set up on the Redis client directly.
+	// Note: Timeouts are set up directly on the Redis client.
+	ctx := context.Background()
 
 	currKey := c.limitCounterKey(key, currentWindow)
 	prevKey := c.limitCounterKey(key, previousWindow)
