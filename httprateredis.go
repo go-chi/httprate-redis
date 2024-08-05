@@ -78,11 +78,11 @@ func NewRedisLimitCounter(cfg *Config) (*redisCounter, error) {
 }
 
 type redisCounter struct {
-	client          *redis.Client
-	windowLength    time.Duration
-	prefixKey       string
-	isRedisDown     atomic.Bool
-	fallbackCounter httprate.LimitCounter
+	client            *redis.Client
+	windowLength      time.Duration
+	prefixKey         string
+	fallbackActivated atomic.Bool
+	fallbackCounter   httprate.LimitCounter
 }
 
 var _ httprate.LimitCounter = (*redisCounter)(nil)
@@ -100,7 +100,7 @@ func (c *redisCounter) Increment(key string, currentWindow time.Time) error {
 
 func (c *redisCounter) IncrementBy(key string, currentWindow time.Time, amount int) (err error) {
 	if c.fallbackCounter != nil {
-		if c.isRedisDown.Load() {
+		if c.fallbackActivated.Load() {
 			return c.fallbackCounter.IncrementBy(key, currentWindow, amount)
 		}
 		defer func() {
@@ -109,7 +109,7 @@ func (c *redisCounter) IncrementBy(key string, currentWindow time.Time, amount i
 				var netErr net.Error
 				if errors.As(err, &netErr) || errors.Is(err, redis.ErrClosed) {
 					go c.fallback()
-					err = c.fallbackCounter.IncrementBy(key, currentWindow, amount)
+					err = c.fallbackCounter.IncrementBy(key, currentWindow, amount) // = nil
 				}
 			}
 		}()
@@ -140,7 +140,7 @@ func (c *redisCounter) IncrementBy(key string, currentWindow time.Time, amount i
 
 func (c *redisCounter) Get(key string, currentWindow, previousWindow time.Time) (curr int, prev int, err error) {
 	if c.fallbackCounter != nil {
-		if c.isRedisDown.Load() {
+		if c.fallbackActivated.Load() {
 			return c.fallbackCounter.Get(key, currentWindow, previousWindow)
 		}
 		defer func() {
@@ -182,14 +182,14 @@ func (c *redisCounter) Get(key string, currentWindow, previousWindow time.Time) 
 	return curr, prev, nil
 }
 
-func (c *redisCounter) IsRedisDown() bool {
-	return c.isRedisDown.Load()
+func (c *redisCounter) IsFallbackActivated() bool {
+	return c.fallbackActivated.Load()
 }
 
 func (c *redisCounter) fallback() {
-	// Fallback to in-memory counter.
-	wasAlreadyDown := c.isRedisDown.Swap(true)
-	if wasAlreadyDown {
+	// Activate the in-memory counter fallback, unless activated by some other goroutine.
+	wasAlreadyActive := c.fallbackActivated.Swap(true)
+	if wasAlreadyActive {
 		return
 	}
 
@@ -197,7 +197,7 @@ func (c *redisCounter) fallback() {
 	for {
 		err := c.client.Ping(context.Background()).Err()
 		if err == nil {
-			c.isRedisDown.Store(false)
+			c.fallbackActivated.Store(false)
 			return
 		}
 		time.Sleep(50 * time.Millisecond)

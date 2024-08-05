@@ -28,7 +28,7 @@ func main() {
 		// in use (redis vs. local in-memory fallback).
 		r.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if rc.IsRedisDown() {
+				if rc.IsFallbackActivated() {
 					w.Header().Set("X-RateLimit-Backend", "in-memory")
 				} else {
 					w.Header().Set("X-RateLimit-Backend", "redis")
@@ -38,24 +38,23 @@ func main() {
 		})
 
 		r.Use(httprate.Limit(
-			100, time.Second,
-			//5, time.Minute,
+			50, time.Second,
 			httprate.WithKeyByIP(),
-			// httprateredis.WithRedisLimitCounter(&httprateredis.Config{
-			// 	Host: "127.0.0.1", Port: 6379,
-			// }),
+			httprateredis.WithRedisLimitCounter(&httprateredis.Config{
+				Host: "127.0.0.1", Port: 6379,
+			}),
 			httprate.WithLimitCounter(rc),
 		))
 
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("5 req/min\n"))
+			w.Write([]byte("ok\n"))
 		})
 	})
 
-	log.Printf("Serving at localhost:3333")
+	log.Printf("Serving at http://localhost:3333, rate-limited at 50 req/s per IP address")
 	log.Println()
-	log.Printf("Try running:")
-	log.Printf("curl -v http://localhost:3333")
+	log.Printf("Try making 55 requests:")
+	log.Println(`curl -s -o /dev/null -w "Request #%{xfer_id} => Response HTTP %{http_code} (backend: %header{X-Ratelimit-Backend}, limit: %header{X-Ratelimit-Limit}, remaining: %header{X-Ratelimit-Remaining})\n" "http://localhost:3333?req=[0-54]"`)
 
 	http.ListenAndServe(":3333", r)
 }

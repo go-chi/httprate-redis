@@ -24,8 +24,8 @@ type Config struct {
 
 	// Client if supplied will be used and below fields will be ignored.
 	//
-	// It is recommended to disable retries and set short Dial/Read/Write
-	// timeouts, so the local in-memory fallback can activate quickly.
+	// NOTE: It's recommended to set short Dial/Read/Write timeouts and disable
+	// retries on the client, so the local in-memory fallback can activate quickly.
 	Client    *redis.Client `toml:"-"`
 	Host      string        `toml:"host"`
 	Port      uint16        `toml:"port"`
