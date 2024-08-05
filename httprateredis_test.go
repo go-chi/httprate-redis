@@ -13,13 +13,15 @@ import (
 
 func TestRedisCounter(t *testing.T) {
 	limitCounter, err := httprateredis.NewRedisLimitCounter(&httprateredis.Config{
-		Host:       "localhost",
-		Port:       6379,
-		MaxIdle:    500,
-		MaxActive:  500,
-		DBIndex:    0,
-		ClientName: "httprateredis_test",
-		PrefixKey:  fmt.Sprintf("httprate:test:%v", rand.Int31n(100000)), // Unique key for each test
+		Host:             "localhost",
+		Port:             6379,
+		MaxIdle:          100,
+		MaxActive:        200,
+		DBIndex:          0,
+		ClientName:       "httprateredis_test",
+		PrefixKey:        fmt.Sprintf("httprate:test:%v", rand.Int31n(100000)), // Unique Redis key for each test
+		FallbackTimeout:  time.Second,
+		FallbackDisabled: true,
 	})
 	if err != nil {
 		t.Fatalf("redis not available: %v", err)
@@ -45,7 +47,7 @@ func TestRedisCounter(t *testing.T) {
 			curr: 0,
 		},
 		{
-			name:   "t=0m: increment 1",
+			name:   "t=0m: increment by 1",
 			incrBy: 1,
 			prev:   0,
 			curr:   1,

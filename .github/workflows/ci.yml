@@ -33,5 +33,8 @@ jobs:
       - name: Build example
         run: cd ./_example && go build -v ./
 
+      - name: Check ulimit
+        run: ulimit -n
+
       - name: Test
-        run: go test -v ./...
+        run: go test -v -count=10 ./...
