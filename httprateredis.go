@@ -67,7 +67,7 @@ func NewRedisLimitCounter(cfg *Config) (*redisCounter, error) {
 			ClientName:       cfg.ClientName,
 			DisableIndentity: true,
 
-			DialTimeout:  cfg.FallbackTimeout,
+			DialTimeout:  2 * cfg.FallbackTimeout,
 			ReadTimeout:  cfg.FallbackTimeout,
 			WriteTimeout: cfg.FallbackTimeout,
 			PoolSize:     maxActive,
