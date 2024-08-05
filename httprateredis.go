@@ -41,7 +41,7 @@ func NewRedisLimitCounter(cfg *Config) (*redisCounter, error) {
 	}
 	if cfg.FallbackTimeout == 0 {
 		// Activate local in-memory fallback fairly quickly, as this would slow down all requests.
-		cfg.FallbackTimeout = 50 * time.Millisecond
+		cfg.FallbackTimeout = 100 * time.Millisecond
 	}
 
 	rc := &redisCounter{
