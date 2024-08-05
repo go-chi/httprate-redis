@@ -61,10 +61,11 @@ func NewRedisLimitCounter(cfg *Config) (*redisCounter, error) {
 		}
 
 		rc.client = redis.NewClient(&redis.Options{
-			Addr:       fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
-			Password:   cfg.Password,
-			DB:         cfg.DBIndex,
-			ClientName: cfg.ClientName,
+			Addr:             fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+			Password:         cfg.Password,
+			DB:               cfg.DBIndex,
+			ClientName:       cfg.ClientName,
+			DisableIndentity: true,
 
 			DialTimeout:  cfg.FallbackTimeout,
 			ReadTimeout:  cfg.FallbackTimeout,
