@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/go-chi/httprate v0.12.0
-	github.com/redis/go-redis/v9 v9.6.0
+	github.com/redis/go-redis/v9 v9.6.1
 	golang.org/x/sync v0.7.0
 )
 
