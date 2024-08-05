@@ -37,6 +37,7 @@ func main() {
 			})
 		})
 
+		// Rate-limit at 50 req/s per IP address.
 		r.Use(httprate.Limit(
 			50, time.Second,
 			httprate.WithKeyByIP(),

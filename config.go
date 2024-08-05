@@ -22,9 +22,9 @@ type Config struct {
 	// the system will use the local counter unless it is explicitly disabled.
 	FallbackTimeout time.Duration `toml:"fallback_timeout"` // default: 50ms
 
-	// Client if supplied will be used and below fields will be ignored.
+	// Client if supplied will be used and the below fields will be ignored.
 	//
-	// NOTE: It's recommended to set short Dial/Read/Write timeouts and disable
+	// NOTE: It's recommended to set short dial/read/write timeouts and disable
 	// retries on the client, so the local in-memory fallback can activate quickly.
 	Client    *redis.Client `toml:"-"`
 	Host      string        `toml:"host"`

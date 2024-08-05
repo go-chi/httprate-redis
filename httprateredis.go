@@ -40,6 +40,7 @@ func NewRedisLimitCounter(cfg *Config) (*redisCounter, error) {
 		cfg.PrefixKey = "httprate"
 	}
 	if cfg.FallbackTimeout == 0 {
+		// Activate local in-memory fallback fairly quickly, as this would slow down all requests.
 		cfg.FallbackTimeout = 50 * time.Millisecond
 	}
 
@@ -50,29 +51,30 @@ func NewRedisLimitCounter(cfg *Config) (*redisCounter, error) {
 		rc.fallbackCounter = httprate.NewLocalLimitCounter(cfg.WindowLength)
 	}
 
-	var maxIdle, maxActive = cfg.MaxIdle, cfg.MaxActive
-	if maxIdle <= 0 {
-		maxIdle = 20
-	}
-	if maxActive <= 0 {
-		maxActive = 50
-	}
+	if cfg.Client == nil {
+		maxIdle, maxActive := cfg.MaxIdle, cfg.MaxActive
+		if maxIdle < 1 {
+			maxIdle = 20
+		}
+		if maxActive < 1 {
+			maxActive = 50
+		}
 
-	address := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-	rc.client = redis.NewClient(&redis.Options{
-		Addr:         address,
-		Password:     cfg.Password,
-		DB:           cfg.DBIndex,
-		PoolSize:     maxActive,
-		MaxIdleConns: maxIdle,
-		ClientName:   cfg.ClientName,
+		rc.client = redis.NewClient(&redis.Options{
+			Addr:       fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+			Password:   cfg.Password,
+			DB:         cfg.DBIndex,
+			ClientName: cfg.ClientName,
 
-		DialTimeout:  cfg.FallbackTimeout,
-		ReadTimeout:  cfg.FallbackTimeout,
-		WriteTimeout: cfg.FallbackTimeout,
-		MinIdleConns: 1,
-		MaxRetries:   -1,
-	})
+			DialTimeout:  cfg.FallbackTimeout,
+			ReadTimeout:  cfg.FallbackTimeout,
+			WriteTimeout: cfg.FallbackTimeout,
+			PoolSize:     maxActive,
+			MinIdleConns: 1,
+			MaxIdleConns: maxIdle,
+			MaxRetries:   -1, // -1 disables retries
+		})
+	}
 
 	return rc, nil
 }
@@ -109,7 +111,7 @@ func (c *redisCounter) IncrementBy(key string, currentWindow time.Time, amount i
 				var netErr net.Error
 				if errors.As(err, &netErr) || errors.Is(err, redis.ErrClosed) {
 					go c.fallback()
-					err = c.fallbackCounter.IncrementBy(key, currentWindow, amount) // = nil
+					err = c.fallbackCounter.IncrementBy(key, currentWindow, amount)
 				}
 			}
 		}()
