@@ -111,7 +111,7 @@ func (c *redisCounter) IncrementBy(key string, currentWindow time.Time, amount i
 				// On redis network error, fallback to local in-memory counter.
 				var netErr net.Error
 				if errors.As(err, &netErr) || errors.Is(err, redis.ErrClosed) {
-					go c.fallback()
+					c.fallback()
 					err = c.fallbackCounter.IncrementBy(key, currentWindow, amount)
 				}
 			}
@@ -151,7 +151,7 @@ func (c *redisCounter) Get(key string, currentWindow, previousWindow time.Time) 
 				// On redis network error, fallback to local in-memory counter.
 				var netErr net.Error
 				if errors.As(err, &netErr) || errors.Is(err, redis.ErrClosed) {
-					go c.fallback()
+					c.fallback()
 					curr, prev, err = c.fallbackCounter.Get(key, currentWindow, previousWindow)
 				}
 			}
@@ -191,19 +191,23 @@ func (c *redisCounter) IsFallbackActivated() bool {
 
 func (c *redisCounter) fallback() {
 	// Activate the in-memory counter fallback, unless activated by some other goroutine.
-	wasAlreadyActive := c.fallbackActivated.Swap(true)
-	if wasAlreadyActive {
+	fallbackAlreadyActivated := c.fallbackActivated.Swap(true)
+	if fallbackAlreadyActivated {
 		return
 	}
 
-	// Try to re-connect to redis every 50ms.
+	go c.reconnect()
+}
+
+func (c *redisCounter) reconnect() {
+	// Try to re-connect to redis every 200ms.
 	for {
 		err := c.client.Ping(context.Background()).Err()
 		if err == nil {
 			c.fallbackActivated.Store(false)
 			return
 		}
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond)
 	}
 }
 
