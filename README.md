@@ -1,7 +1,6 @@
 # httprate-redis
 
 ![CI workflow](https://github.com/go-chi/httprate-redis/actions/workflows/ci.yml/badge.svg)
-![Benchmark workflow](https://github.com/go-chi/httprate-redis/actions/workflows/benchmark.yml/badge.svg)
 [![GoDoc Widget]][GoDoc]
 
 [GoDoc]: https://pkg.go.dev/github.com/go-chi/httprate-redis
