@@ -26,6 +26,7 @@ func TestRedisCounter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("redis not available: %v", err)
 	}
+	defer limitCounter.Close()
 
 	limitCounter.Config(1000, time.Minute)
 
@@ -166,6 +167,7 @@ func BenchmarkLocalCounter(b *testing.B) {
 	if err != nil {
 		b.Fatalf("redis not available: %v", err)
 	}
+	defer limitCounter.Close()
 
 	limitCounter.Config(1000, time.Minute)
 

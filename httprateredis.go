@@ -182,6 +182,10 @@ func (c *redisCounter) IsFallbackActivated() bool {
 	return c.fallbackActivated.Load()
 }
 
+func (c *redisCounter) Close() error {
+	return c.client.Close()
+}
+
 func (c *redisCounter) shouldFallback(err error) bool {
 	if err == nil {
 		return false
