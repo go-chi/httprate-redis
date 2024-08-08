@@ -48,10 +48,18 @@ func NewRedisLimitCounter(cfg *Config) (*redisCounter, error) {
 	}
 
 	rc := &redisCounter{
-		prefixKey: cfg.PrefixKey,
+		prefixKey:  cfg.PrefixKey,
+		onError:    func(err error) {},
+		onFallback: func(activated bool) {},
+	}
+	if cfg.OnError != nil {
+		rc.onError = cfg.OnError
 	}
 	if !cfg.FallbackDisabled {
 		rc.fallbackCounter = httprate.NewLocalLimitCounter(cfg.WindowLength)
+		if cfg.OnFallbackChange != nil {
+			rc.onFallback = cfg.OnFallbackChange
+		}
 	}
 
 	if cfg.Client == nil {
@@ -89,6 +97,8 @@ type redisCounter struct {
 	prefixKey         string
 	fallbackActivated atomic.Bool
 	fallbackCounter   httprate.LimitCounter
+	onError           func(err error)
+	onFallback        func(activated bool)
 }
 
 var _ httprate.LimitCounter = (*redisCounter)(nil)
@@ -190,10 +200,12 @@ func (c *redisCounter) shouldFallback(err error) bool {
 	if err == nil {
 		return false
 	}
+	c.onError(err)
 
 	// Activate the local in-memory counter fallback, unless activated by some other goroutine.
 	alreadyActivated := c.fallbackActivated.Swap(true)
 	if !alreadyActivated {
+		c.onFallback(true)
 		go c.reconnect()
 	}
 
@@ -208,6 +220,9 @@ func (c *redisCounter) reconnect() {
 		err := c.client.Ping(context.Background()).Err()
 		if err == nil {
 			c.fallbackActivated.Store(false)
+			if c.onFallback != nil {
+				c.onFallback(false)
+			}
 			return
 		}
 	}
