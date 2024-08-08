@@ -13,6 +13,9 @@ type Config struct {
 	ClientName   string        `toml:"client_name"`   // default: os.Args[0]
 	PrefixKey    string        `toml:"prefix_key"`    // default: "httprate"
 
+	// OnError lets you subscribe to all runtime Redis errors. Useful for logging/debugging.
+	OnError func(err error)
+
 	// Disable the use of the local in-memory fallback mechanism. When enabled,
 	// the system will return HTTP 428 for all requests when Redis is down.
 	FallbackDisabled bool `toml:"fallback_disabled"` // default: false
@@ -21,6 +24,9 @@ type Config struct {
 	// in-memory counter. If Redis does not respond within this duration,
 	// the system will use the local counter unless it is explicitly disabled.
 	FallbackTimeout time.Duration `toml:"fallback_timeout"` // default: 100ms
+
+	// OnFallbackChange lets subscribe to local in-memory fallback changes.
+	OnFallbackChange func(activated bool)
 
 	// Client if supplied will be used and the below fields will be ignored.
 	//

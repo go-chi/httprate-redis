@@ -16,14 +16,19 @@ func TestLocalFallback(t *testing.T) {
 	redis, err := miniredis.Run()
 	redisPort, _ := strconv.Atoi(redis.Port())
 
+	var onErrorCalled bool
+	var onFallbackCalled bool
+
 	limitCounter, err := httprateredis.NewRedisLimitCounter(&httprateredis.Config{
-		Host:            redis.Host(),
-		Port:            uint16(redisPort),
-		MaxIdle:         0,
-		MaxActive:       1,
-		ClientName:      "httprateredis_test",
-		PrefixKey:       fmt.Sprintf("httprate:test:%v", rand.Int31n(100000)), // Unique Redis key for each test
-		FallbackTimeout: 200 * time.Millisecond,
+		Host:             redis.Host(),
+		Port:             uint16(redisPort),
+		MaxIdle:          0,
+		MaxActive:        1,
+		ClientName:       "httprateredis_test",
+		PrefixKey:        fmt.Sprintf("httprate:test:%v", rand.Int31n(100000)), // Unique Redis key for each test
+		FallbackTimeout:  200 * time.Millisecond,
+		OnError:          func(err error) { onErrorCalled = true },
+		OnFallbackChange: func(fallbackActivated bool) { onFallbackCalled = true },
 	})
 	if err != nil {
 		t.Fatalf("redis not available: %v", err)
@@ -36,6 +41,12 @@ func TestLocalFallback(t *testing.T) {
 
 	if limitCounter.IsFallbackActivated() {
 		t.Error("fallback should not be activated at the beginning")
+	}
+	if onErrorCalled {
+		t.Error("onError() should not be called at the beginning")
+	}
+	if onFallbackCalled {
+		t.Error("onFallback() should not be called before we simulate redis failure")
 	}
 
 	err = limitCounter.IncrementBy("key:fallback", currentWindow, 1)
@@ -50,6 +61,12 @@ func TestLocalFallback(t *testing.T) {
 
 	if limitCounter.IsFallbackActivated() {
 		t.Error("fallback should not be activated before we simulate redis failure")
+	}
+	if onErrorCalled {
+		t.Error("onError() should not be called before we simulate redis failure")
+	}
+	if onFallbackCalled {
+		t.Error("onFallback() should not be called before we simulate redis failure")
 	}
 
 	redis.Close()
@@ -67,4 +84,11 @@ func TestLocalFallback(t *testing.T) {
 	if !limitCounter.IsFallbackActivated() {
 		t.Error("fallback should be activated after we simulate redis failure")
 	}
+	if !onErrorCalled {
+		t.Error("onError() should be called after we simulate redis failure")
+	}
+	if !onFallbackCalled {
+		t.Error("onFallback() should be called after we simulate redis failure")
+	}
+
 }
