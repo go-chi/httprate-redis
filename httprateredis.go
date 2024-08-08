@@ -38,8 +38,13 @@ func NewRedisLimitCounter(cfg *Config) (*redisCounter, error) {
 		cfg.PrefixKey = "httprate"
 	}
 	if cfg.FallbackTimeout == 0 {
-		// Activate local in-memory fallback fairly quickly, as this would slow down all requests.
-		cfg.FallbackTimeout = 100 * time.Millisecond
+		if cfg.FallbackDisabled {
+			cfg.FallbackTimeout = time.Second
+		} else {
+			// Activate local in-memory fallback fairly quickly,
+			// so we don't slow down incoming requests too much.
+			cfg.FallbackTimeout = 100 * time.Millisecond
+		}
 	}
 
 	rc := &redisCounter{
@@ -52,10 +57,10 @@ func NewRedisLimitCounter(cfg *Config) (*redisCounter, error) {
 	if cfg.Client == nil {
 		maxIdle, maxActive := cfg.MaxIdle, cfg.MaxActive
 		if maxIdle < 1 {
-			maxIdle = 20
+			maxIdle = 5
 		}
 		if maxActive < 1 {
-			maxActive = 50
+			maxActive = 10
 		}
 
 		rc.client = redis.NewClient(&redis.Options{
