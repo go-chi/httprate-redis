@@ -15,8 +15,8 @@ func TestRedisCounter(t *testing.T) {
 	limitCounter, err := httprateredis.NewRedisLimitCounter(&httprateredis.Config{
 		Host:             "localhost",
 		Port:             6379,
-		MaxIdle:          100,
-		MaxActive:        200,
+		MaxIdle:          0,
+		MaxActive:        2,
 		DBIndex:          0,
 		ClientName:       "httprateredis_test",
 		PrefixKey:        fmt.Sprintf("httprate:test:%v", rand.Int31n(100000)), // Unique Redis key for each test
@@ -26,6 +26,7 @@ func TestRedisCounter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("redis not available: %v", err)
 	}
+	defer limitCounter.Close()
 
 	limitCounter.Config(1000, time.Minute)
 
@@ -156,22 +157,27 @@ func TestRedisCounter(t *testing.T) {
 
 func BenchmarkLocalCounter(b *testing.B) {
 	limitCounter, err := httprateredis.NewRedisLimitCounter(&httprateredis.Config{
-		Host:       "localhost",
-		Port:       6379,
-		MaxIdle:    500,
-		MaxActive:  500,
-		DBIndex:    0,
-		ClientName: "httprateredis_test",
-		PrefixKey:  fmt.Sprintf("httprate:test:%v", rand.Int31n(100000)), // Unique key for each test
+		Host:             "localhost",
+		Port:             6379,
+		DBIndex:          0,
+		ClientName:       "httprateredis_test",
+		PrefixKey:        fmt.Sprintf("httprate:test:%v", rand.Int31n(100000)), // Unique key for each test
+		MaxActive:        10,
+		MaxIdle:          0,
+		FallbackDisabled: true,
+		FallbackTimeout:  5 * time.Second,
 	})
 	if err != nil {
 		b.Fatalf("redis not available: %v", err)
 	}
+	defer limitCounter.Close()
 
 	limitCounter.Config(1000, time.Minute)
 
 	currentWindow := time.Now().UTC().Truncate(time.Minute)
 	previousWindow := currentWindow.Add(-time.Minute)
+
+	concurrentRequests := 100
 
 	b.ResetTimer()
 
@@ -182,14 +188,14 @@ func BenchmarkLocalCounter(b *testing.B) {
 			previousWindow.Add(time.Duration(i) * time.Minute)
 
 			wg := sync.WaitGroup{}
-			wg.Add(1000)
-			for i := 0; i < 1000; i++ {
+			wg.Add(concurrentRequests)
+			for i := 0; i < concurrentRequests; i++ {
 				// Simulate concurrent requests with different rate-limit keys.
 				go func(i int) {
 					defer wg.Done()
 
 					_, _, _ = limitCounter.Get(fmt.Sprintf("key:%v", i), currentWindow, previousWindow)
-					_ = limitCounter.IncrementBy(fmt.Sprintf("key:%v", i), currentWindow, rand.Intn(100))
+					_ = limitCounter.IncrementBy(fmt.Sprintf("key:%v", i), currentWindow, rand.Intn(20))
 				}(i)
 			}
 			wg.Wait()

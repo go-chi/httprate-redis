@@ -2,9 +2,7 @@ package httprateredis
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -40,8 +38,13 @@ func NewRedisLimitCounter(cfg *Config) (*redisCounter, error) {
 		cfg.PrefixKey = "httprate"
 	}
 	if cfg.FallbackTimeout == 0 {
-		// Activate local in-memory fallback fairly quickly, as this would slow down all requests.
-		cfg.FallbackTimeout = 100 * time.Millisecond
+		if cfg.FallbackDisabled {
+			cfg.FallbackTimeout = time.Second
+		} else {
+			// Activate local in-memory fallback fairly quickly,
+			// so we don't slow down incoming requests too much.
+			cfg.FallbackTimeout = 100 * time.Millisecond
+		}
 	}
 
 	rc := &redisCounter{
@@ -54,10 +57,10 @@ func NewRedisLimitCounter(cfg *Config) (*redisCounter, error) {
 	if cfg.Client == nil {
 		maxIdle, maxActive := cfg.MaxIdle, cfg.MaxActive
 		if maxIdle < 1 {
-			maxIdle = 20
+			maxIdle = 5
 		}
 		if maxActive < 1 {
-			maxActive = 50
+			maxActive = 10
 		}
 
 		rc.client = redis.NewClient(&redis.Options{
@@ -107,13 +110,8 @@ func (c *redisCounter) IncrementBy(key string, currentWindow time.Time, amount i
 			return c.fallbackCounter.IncrementBy(key, currentWindow, amount)
 		}
 		defer func() {
-			if err != nil {
-				// On redis network error, fallback to local in-memory counter.
-				var netErr net.Error
-				if errors.As(err, &netErr) || errors.Is(err, redis.ErrClosed) {
-					c.fallback()
-					err = c.fallbackCounter.IncrementBy(key, currentWindow, amount)
-				}
+			if c.shouldFallback(err) {
+				err = c.fallbackCounter.IncrementBy(key, currentWindow, amount)
 			}
 		}()
 	}
@@ -147,13 +145,8 @@ func (c *redisCounter) Get(key string, currentWindow, previousWindow time.Time) 
 			return c.fallbackCounter.Get(key, currentWindow, previousWindow)
 		}
 		defer func() {
-			if err != nil {
-				// On redis network error, fallback to local in-memory counter.
-				var netErr net.Error
-				if errors.As(err, &netErr) || errors.Is(err, redis.ErrClosed) {
-					c.fallback()
-					curr, prev, err = c.fallbackCounter.Get(key, currentWindow, previousWindow)
-				}
+			if c.shouldFallback(err) {
+				curr, prev, err = c.fallbackCounter.Get(key, currentWindow, previousWindow)
 			}
 		}()
 	}
@@ -189,25 +182,34 @@ func (c *redisCounter) IsFallbackActivated() bool {
 	return c.fallbackActivated.Load()
 }
 
-func (c *redisCounter) fallback() {
-	// Activate the in-memory counter fallback, unless activated by some other goroutine.
-	fallbackAlreadyActivated := c.fallbackActivated.Swap(true)
-	if fallbackAlreadyActivated {
-		return
+func (c *redisCounter) Close() error {
+	return c.client.Close()
+}
+
+func (c *redisCounter) shouldFallback(err error) bool {
+	if err == nil {
+		return false
 	}
 
-	go c.reconnect()
+	// Activate the local in-memory counter fallback, unless activated by some other goroutine.
+	alreadyActivated := c.fallbackActivated.Swap(true)
+	if !alreadyActivated {
+		go c.reconnect()
+	}
+
+	return true
 }
 
 func (c *redisCounter) reconnect() {
 	// Try to re-connect to redis every 200ms.
 	for {
+		time.Sleep(200 * time.Millisecond)
+
 		err := c.client.Ping(context.Background()).Err()
 		if err == nil {
 			c.fallbackActivated.Store(false)
 			return
 		}
-		time.Sleep(200 * time.Millisecond)
 	}
 }
 

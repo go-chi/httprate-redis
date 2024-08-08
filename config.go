@@ -20,7 +20,7 @@ type Config struct {
 	// Timeout for each Redis command after which we fall back to a local
 	// in-memory counter. If Redis does not respond within this duration,
 	// the system will use the local counter unless it is explicitly disabled.
-	FallbackTimeout time.Duration `toml:"fallback_timeout"` // default: 50ms
+	FallbackTimeout time.Duration `toml:"fallback_timeout"` // default: 100ms
 
 	// Client if supplied will be used and the below fields will be ignored.
 	//
@@ -31,6 +31,6 @@ type Config struct {
 	Port      uint16        `toml:"port"`
 	Password  string        `toml:"password"`   // optional
 	DBIndex   int           `toml:"db_index"`   // default: 0
-	MaxIdle   int           `toml:"max_idle"`   // default: 4
-	MaxActive int           `toml:"max_active"` // default: 8
+	MaxIdle   int           `toml:"max_idle"`   // default: 5
+	MaxActive int           `toml:"max_active"` // default: 10
 }
