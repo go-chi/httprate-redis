@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	httprateredis "github.com/go-chi/httprate-redis"
+	httprateredis "github.com/ddo/httprate-redis"
 	"golang.org/x/sync/errgroup"
 )
 

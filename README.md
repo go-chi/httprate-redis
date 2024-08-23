@@ -1,10 +1,10 @@
 # httprate-redis
 
-![CI workflow](https://github.com/go-chi/httprate-redis/actions/workflows/ci.yml/badge.svg)
+![CI workflow](https://github.com/ddo/httprate-redis/actions/workflows/ci.yml/badge.svg)
 [![GoDoc Widget]][GoDoc]
 
-[GoDoc]: https://pkg.go.dev/github.com/go-chi/httprate-redis
-[GoDoc Widget]: https://godoc.org/github.com/go-chi/httprate-redis?status.svg
+[GoDoc]: https://pkg.go.dev/github.com/ddo/httprate-redis
+[GoDoc Widget]: https://godoc.org/github.com/ddo/httprate-redis?status.svg
 
 Redis backend for [github.com/go-chi/httprate](https://github.com/go-chi/httprate), implementing `httprate.LimitCounter` interface.
 
@@ -21,7 +21,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
-	httprateredis "github.com/go-chi/httprate-redis"
+	httprateredis "github.com/ddo/httprate-redis"
 )
 
 func main() {

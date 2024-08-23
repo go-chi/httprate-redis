@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
-	httprateredis "github.com/go-chi/httprate-redis"
+	httprateredis "github.com/ddo/httprate-redis"
 )
 
 // Test local in-memory counter fallback, which gets activated in case Redis is not available.

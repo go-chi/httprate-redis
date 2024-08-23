@@ -1,13 +1,13 @@
-module github.com/go-chi/httprate-redis/_example
+module github.com/ddo/httprate-redis/_example
 
 go 1.22.5
 
-replace github.com/go-chi/httprate-redis => ../
+replace github.com/ddo/httprate-redis => ../
 
 require (
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-chi/httprate v0.12.0
-	github.com/go-chi/httprate-redis v0.3.0
+	github.com/ddo/httprate-redis v0.3.0
 	github.com/go-chi/telemetry v0.3.4
 )
 
