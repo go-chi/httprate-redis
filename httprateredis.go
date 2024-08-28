@@ -62,7 +62,9 @@ func NewRedisLimitCounter(cfg *Config) (*redisCounter, error) {
 		}
 	}
 
-	if cfg.Client == nil {
+	if cfg.Client != nil {
+		rc.client = cfg.Client
+	} else {
 		maxIdle, maxActive := cfg.MaxIdle, cfg.MaxActive
 		if maxIdle < 1 {
 			maxIdle = 5
