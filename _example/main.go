@@ -19,7 +19,7 @@ func main() {
 	// Expose Prometheus endpoint at /metrics path.
 	r.Use(telemetry.Collector(telemetry.Config{AllowAny: true}))
 
-	rc, _ := httprateredis.NewRedisLimitCounter(&httprateredis.Config{
+	rc := httprateredis.NewRedisLimitCounter(&httprateredis.Config{
 		Host: "127.0.0.1", Port: 6379,
 	})
 
