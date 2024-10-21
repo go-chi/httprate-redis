@@ -17,11 +17,10 @@ func WithRedisLimitCounter(cfg *Config) httprate.Option {
 	if cfg.Disabled {
 		return httprate.WithNoop()
 	}
-	rc, _ := NewRedisLimitCounter(cfg)
-	return httprate.WithLimitCounter(rc)
+	return httprate.WithLimitCounter(NewRedisLimitCounter(cfg))
 }
 
-func NewRedisLimitCounter(cfg *Config) (*redisCounter, error) {
+func NewRedisLimitCounter(cfg *Config) *redisCounter {
 	if cfg == nil {
 		cfg = &Config{}
 	}
@@ -90,7 +89,7 @@ func NewRedisLimitCounter(cfg *Config) (*redisCounter, error) {
 		})
 	}
 
-	return rc, nil
+	return rc
 }
 
 type redisCounter struct {
