@@ -22,7 +22,7 @@ func TestLocalFallback(t *testing.T) {
 	var onErrorCalled bool
 	var onFallbackCalled bool
 
-	limitCounter := httprateredis.NewRedisLimitCounter(&httprateredis.Config{
+	limitCounter := httprateredis.NewCounter(&httprateredis.Config{
 		Host:             redis.Host(),
 		Port:             uint16(redisPort),
 		MaxIdle:          0,

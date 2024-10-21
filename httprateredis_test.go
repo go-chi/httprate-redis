@@ -12,7 +12,7 @@ import (
 )
 
 func TestRedisCounter(t *testing.T) {
-	limitCounter := httprateredis.NewRedisLimitCounter(&httprateredis.Config{
+	limitCounter := httprateredis.NewCounter(&httprateredis.Config{
 		Host:             "localhost",
 		Port:             6379,
 		MaxIdle:          0,
@@ -153,7 +153,7 @@ func TestRedisCounter(t *testing.T) {
 }
 
 func BenchmarkLocalCounter(b *testing.B) {
-	limitCounter := httprateredis.NewRedisLimitCounter(&httprateredis.Config{
+	limitCounter := httprateredis.NewCounter(&httprateredis.Config{
 		Host:             "localhost",
 		Port:             6379,
 		DBIndex:          0,

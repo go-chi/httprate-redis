@@ -17,10 +17,18 @@ func WithRedisLimitCounter(cfg *Config) httprate.Option {
 	if cfg.Disabled {
 		return httprate.WithNoop()
 	}
-	return httprate.WithLimitCounter(NewRedisLimitCounter(cfg))
+	return httprate.WithLimitCounter(NewCounter(cfg))
 }
 
-func NewRedisLimitCounter(cfg *Config) *redisCounter {
+func NewRedisLimitCounter(cfg *Config) (*redisCounter, error) {
+	c := NewCounter(cfg)
+	if err := c.client.Ping(context.Background()).Err(); err != nil {
+		return nil, fmt.Errorf("ping failed: %w", err)
+	}
+	return c, nil
+}
+
+func NewCounter(cfg *Config) *redisCounter {
 	if cfg == nil {
 		cfg = &Config{}
 	}
