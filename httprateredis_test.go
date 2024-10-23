@@ -12,7 +12,7 @@ import (
 )
 
 func TestRedisCounter(t *testing.T) {
-	limitCounter, err := httprateredis.NewRedisLimitCounter(&httprateredis.Config{
+	limitCounter := httprateredis.NewCounter(&httprateredis.Config{
 		Host:             "localhost",
 		Port:             6379,
 		MaxIdle:          0,
@@ -23,9 +23,6 @@ func TestRedisCounter(t *testing.T) {
 		FallbackTimeout:  time.Second,
 		FallbackDisabled: true,
 	})
-	if err != nil {
-		t.Fatalf("redis not available: %v", err)
-	}
 	defer limitCounter.Close()
 
 	limitCounter.Config(1000, time.Minute)
@@ -156,7 +153,7 @@ func TestRedisCounter(t *testing.T) {
 }
 
 func BenchmarkLocalCounter(b *testing.B) {
-	limitCounter, err := httprateredis.NewRedisLimitCounter(&httprateredis.Config{
+	limitCounter := httprateredis.NewCounter(&httprateredis.Config{
 		Host:             "localhost",
 		Port:             6379,
 		DBIndex:          0,
@@ -167,9 +164,6 @@ func BenchmarkLocalCounter(b *testing.B) {
 		FallbackDisabled: true,
 		FallbackTimeout:  5 * time.Second,
 	})
-	if err != nil {
-		b.Fatalf("redis not available: %v", err)
-	}
 	defer limitCounter.Close()
 
 	limitCounter.Config(1000, time.Minute)

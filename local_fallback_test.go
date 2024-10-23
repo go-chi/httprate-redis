@@ -14,12 +14,15 @@ import (
 // Test local in-memory counter fallback, which gets activated in case Redis is not available.
 func TestLocalFallback(t *testing.T) {
 	redis, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
 	redisPort, _ := strconv.Atoi(redis.Port())
 
 	var onErrorCalled bool
 	var onFallbackCalled bool
 
-	limitCounter, err := httprateredis.NewRedisLimitCounter(&httprateredis.Config{
+	limitCounter := httprateredis.NewCounter(&httprateredis.Config{
 		Host:             redis.Host(),
 		Port:             uint16(redisPort),
 		MaxIdle:          0,
@@ -30,9 +33,6 @@ func TestLocalFallback(t *testing.T) {
 		OnError:          func(err error) { onErrorCalled = true },
 		OnFallbackChange: func(fallbackActivated bool) { onFallbackCalled = true },
 	})
-	if err != nil {
-		t.Fatalf("redis not available: %v", err)
-	}
 
 	limitCounter.Config(1000, time.Minute)
 
