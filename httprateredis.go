@@ -50,7 +50,7 @@ func NewCounter(cfg *Config) *redisCounter {
 		} else {
 			// Activate local in-memory fallback fairly quickly,
 			// so we don't slow down incoming requests too much.
-			cfg.FallbackTimeout = 100 * time.Millisecond
+			cfg.FallbackTimeout = 250 * time.Millisecond
 		}
 	}
 
