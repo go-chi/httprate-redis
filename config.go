@@ -10,7 +10,7 @@ type Config struct {
 	Disabled bool `toml:"disabled"` // default: false
 
 	WindowLength time.Duration `toml:"window_length"` // default: 1m
-	ClientName   string        `toml:"client_name"`   // default: os.Args[0]
+	ClientName   string        `toml:"client_name"`   // default: ""
 	PrefixKey    string        `toml:"prefix_key"`    // default: "httprate"
 
 	// OnError lets you subscribe to all runtime Redis errors. Useful for logging/debugging.
