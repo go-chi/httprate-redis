@@ -39,4 +39,12 @@ type Config struct {
 	DBIndex   int           `toml:"db_index"`   // default: 0
 	MaxIdle   int           `toml:"max_idle"`   // default: 5
 	MaxActive int           `toml:"max_active"` // default: 10
+
+	Provider Provider `toml:"provider"` // default: ""
 }
+
+type Provider string
+
+const (
+	ProviderMemoryStore Provider = "memory-store"
+)
