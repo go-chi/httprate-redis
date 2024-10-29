@@ -40,11 +40,11 @@ type Config struct {
 	MaxIdle   int           `toml:"max_idle"`   // default: 5
 	MaxActive int           `toml:"max_active"` // default: 10
 
-	Provider Provider `toml:"provider"` // default: ""
+	Backend Backend `toml:"backend"` // default: ""
 }
 
-type Provider string
+type Backend string
 
 const (
-	ProviderMemoryStore Provider = "memory-store"
+	BackendMemoryStore Backend = "memory-store"
 )

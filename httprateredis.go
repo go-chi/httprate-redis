@@ -39,7 +39,7 @@ func NewCounter(cfg *Config) *redisCounter {
 		cfg.Port = 6379
 	}
 	// MemoryStore does not support client setname.
-	if cfg.Provider != ProviderMemoryStore && cfg.ClientName == "" {
+	if cfg.Backend != BackendMemoryStore && cfg.ClientName == "" {
 		cfg.ClientName = filepath.Base(os.Args[0])
 	}
 	if cfg.PrefixKey == "" {
