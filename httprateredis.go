@@ -3,8 +3,6 @@ package httprateredis
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -37,10 +35,6 @@ func NewCounter(cfg *Config) *redisCounter {
 	}
 	if cfg.Port < 1 {
 		cfg.Port = 6379
-	}
-	// MemoryStore does not support client setname.
-	if cfg.Backend != BackendMemoryStore && cfg.ClientName == "" {
-		cfg.ClientName = filepath.Base(os.Args[0])
 	}
 	if cfg.PrefixKey == "" {
 		cfg.PrefixKey = "httprate"
