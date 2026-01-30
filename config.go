@@ -36,7 +36,8 @@ type Config struct {
 	Host     string                `toml:"host"`
 	Port     uint16                `toml:"port"`
 	Password string                `toml:"password"` // optional
-	// IsClusterMode can be used when only one host is provided (e.g. Elasticache supports setting up cluster mode with configuration endpoint).
+	// IsClusterMode is an optional setting that can be used when only one host is provided
+	// (e.g. Elasticache supports setting up cluster mode with configuration endpoint).
 	IsClusterMode bool `toml:"is_cluster_mode"` // default: false
 	DBIndex       int  `toml:"db_index"`        // default: 0
 	MaxIdle       int  `toml:"max_idle"`        // default: 5
