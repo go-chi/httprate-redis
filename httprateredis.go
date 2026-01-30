@@ -76,10 +76,11 @@ func NewCounter(cfg *Config) *redisCounter {
 		}
 
 		rc.client = redis.NewUniversalClient(&redis.UniversalOptions{
-			Addrs:      []string{fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)},
-			Password:   cfg.Password,
-			DB:         cfg.DBIndex,
-			ClientName: cfg.ClientName,
+			Addrs:         []string{fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)},
+			Password:      cfg.Password,
+			DB:            cfg.DBIndex,
+			ClientName:    cfg.ClientName,
+			IsClusterMode: cfg.IsClusterMode,
 
 			DialTimeout:  2 * cfg.FallbackTimeout,
 			ReadTimeout:  cfg.FallbackTimeout,
