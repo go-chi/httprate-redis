@@ -80,7 +80,7 @@ func NewCounter(cfg *Config) *redisCounter {
 			Password:      cfg.Password,
 			DB:            cfg.DBIndex,
 			ClientName:    cfg.ClientName,
-			IsClusterMode: cfg.IsCluster,
+			IsClusterMode: cfg.IsClusterMode,
 
 			DialTimeout:  2 * cfg.FallbackTimeout,
 			ReadTimeout:  cfg.FallbackTimeout,

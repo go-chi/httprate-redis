@@ -32,12 +32,13 @@ type Config struct {
 	//
 	// NOTE: It's recommended to set short dial/read/write timeouts and disable
 	// retries on the client, so the local in-memory fallback can activate quickly.
-	Client    redis.UniversalClient `toml:"-"`
-	Host      string                `toml:"host"`
-	Port      uint16                `toml:"port"`
-	Password  string                `toml:"password"`   // optional
-	IsCluster bool                  `toml:"is_cluster"` // default: false
-	DBIndex   int                   `toml:"db_index"`   // default: 0
-	MaxIdle   int                   `toml:"max_idle"`   // default: 5
-	MaxActive int                   `toml:"max_active"` // default: 10
+	Client   redis.UniversalClient `toml:"-"`
+	Host     string                `toml:"host"`
+	Port     uint16                `toml:"port"`
+	Password string                `toml:"password"` // optional
+	// IsClusterMode can be used when only one host is provided (e.g. Elasticache supports setting up cluster mode with configuration endpoint).
+	IsClusterMode bool `toml:"is_cluster_mode"` // default: false
+	DBIndex       int  `toml:"db_index"`        // default: 0
+	MaxIdle       int  `toml:"max_idle"`        // default: 5
+	MaxActive     int  `toml:"max_active"`      // default: 10
 }
