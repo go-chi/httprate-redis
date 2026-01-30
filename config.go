@@ -36,6 +36,7 @@ type Config struct {
 	Host      string                `toml:"host"`
 	Port      uint16                `toml:"port"`
 	Password  string                `toml:"password"`   // optional
+	IsCluster bool                  `toml:"is_cluster"` // default: false
 	DBIndex   int                   `toml:"db_index"`   // default: 0
 	MaxIdle   int                   `toml:"max_idle"`   // default: 5
 	MaxActive int                   `toml:"max_active"` // default: 10
